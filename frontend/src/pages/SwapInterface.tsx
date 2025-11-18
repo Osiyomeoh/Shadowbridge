@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, ArrowRight, CheckCircle, Wallet, ChevronDown, X, ChevronRight, RefreshCw } from 'lucide-react';
+import { Shield, ArrowRight, CheckCircle, Wallet, ChevronDown, X, ChevronRight, RefreshCw, ExternalLink } from 'lucide-react';
 import { generateAllProofs } from '../services/prover';
 import { submitTransfer, getTransferStatus, fetchRecentTransfers, type RelayerTransfer } from '../services/relayer';
 import { connectLaceWallet, disconnectWallet } from '../services/wallet';
@@ -95,10 +95,16 @@ export default function SwapInterface() {
     id: transfer.id,
     amount: transfer.amountUsd,
     recipient: transfer.recipient,
-    status: (transfer.status as TransferHistoryEntry['status']) || 'QUEUED',
     txHash: transfer.txHash,
-    timestamp: transfer.updatedAt || transfer.createdAt,
+    timestamp: transfer.createdAt,
+    status: (transfer.status as TransferHistoryEntry['status']) || 'QUEUED',
   });
+
+  // Get Etherscan URL for Sepolia transactions
+  const getEtherscanUrl = (txHash?: string): string | null => {
+    if (!txHash) return null;
+    return `https://sepolia.etherscan.io/tx/${txHash}`;
+  };
 
   const addToast = (toast: Omit<Toast, 'id'>) => {
     const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -874,40 +880,59 @@ export default function SwapInterface() {
                       <th className="py-2">Recipient</th>
                       <th className="py-2 text-right">Amount</th>
                       <th className="py-2 text-right">Status</th>
+                      <th className="py-2 text-center">View</th>
                     </tr>
                   </thead>
                   <tbody>
                     {history.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="py-4 text-center text-gray-500">No transfers yet</td>
+                        <td colSpan={5} className="py-4 text-center text-gray-500">No transfers yet</td>
                       </tr>
                     ) : (
-                      history.slice(0, 5).map((entry) => (
-                        <tr key={entry.id} className="border-t border-white/5">
-                          <td className="py-2 text-gray-400">
-                            {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="py-2 font-mono text-xs text-gray-300">
-                            {entry.recipient.slice(0, 6)}...{entry.recipient.slice(-4)}
-                          </td>
-                          <td className="py-2 text-right text-white font-semibold">
-                            ${entry.amount.toFixed(2)}
-                          </td>
-                          <td className="py-2 text-right">
-                            <span
-                              className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
-                                entry.status === 'SETTLED'
-                                  ? 'bg-green-500/10 text-neon-green border border-green-500/30'
-                                  : entry.status === 'FAILED'
-                                  ? 'bg-red-500/10 text-red-400 border border-red-500/30'
-                                  : 'bg-cyan-500/10 text-neon-cyan border border-cyan-500/30'
-                              }`}
-                            >
-                              {entry.status === 'PROOF_VERIFYING' ? 'VERIFYING' : entry.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
+                      history.slice(0, 5).map((entry) => {
+                        const etherscanUrl = getEtherscanUrl(entry.txHash);
+                        return (
+                          <tr key={entry.id} className="border-t border-white/5 hover:bg-white/5 transition-colors">
+                            <td className="py-2 text-gray-400">
+                              {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                            <td className="py-2 font-mono text-xs text-gray-300">
+                              {entry.recipient.slice(0, 6)}...{entry.recipient.slice(-4)}
+                            </td>
+                            <td className="py-2 text-right text-white font-semibold">
+                              ${entry.amount.toFixed(2)}
+                            </td>
+                            <td className="py-2 text-right">
+                              <span
+                                className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
+                                  entry.status === 'SETTLED'
+                                    ? 'bg-green-500/10 text-neon-green border border-green-500/30'
+                                    : entry.status === 'FAILED'
+                                    ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                                    : 'bg-cyan-500/10 text-neon-cyan border border-cyan-500/30'
+                                }`}
+                              >
+                                {entry.status === 'PROOF_VERIFYING' ? 'VERIFYING' : entry.status}
+                              </span>
+                            </td>
+                            <td className="py-2 text-center">
+                              {etherscanUrl ? (
+                                <a
+                                  href={etherscanUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center justify-center text-neon-cyan hover:text-neon-green transition-colors"
+                                  title="View on Etherscan"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                              ) : (
+                                <span className="text-gray-600">-</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     )}
                   </tbody>
                 </table>

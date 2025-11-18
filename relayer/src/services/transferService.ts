@@ -99,6 +99,14 @@ export class TransferService {
       input.amountUsd.toString(),
       this.options.decimals
     );
+    
+    // Log for debugging - ensure decimals are correct
+    logger.info('Amount conversion', {
+      amountUsd: input.amountUsd,
+      decimals: this.options.decimals,
+      amountWei: amountWei.toString(),
+      expectedWei: (BigInt(Math.floor(input.amountUsd * 1e18))).toString(),
+    });
 
     return {
       id,

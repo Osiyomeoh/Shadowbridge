@@ -5,9 +5,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-COPY . /app
-# include circom build outputs
-COPY ../../contracts/midnight/circuits/build /app/contracts/midnight/circuits/build
+COPY . .
+
+# Copy circuits build artifacts from the root-level contracts directory
+COPY contracts/midnight/circuits/build ./contracts/midnight/circuits/build
 
 RUN npm run build
 
