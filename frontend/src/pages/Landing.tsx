@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Lock, ArrowRight, Zap, CheckCircle } from 'lucide-react';
 
-// Typing animation component with cursor
 const TypingText = ({ text, speed = 50, delay = 0, className = '' }: { text: string; speed?: number; delay?: number; className?: string }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [showCursor, setShowCursor] = useState(true);
@@ -14,12 +13,10 @@ const TypingText = ({ text, speed = 50, delay = 0, className = '' }: { text: str
     setDisplayedText('');
     setIsTyping(false);
 
-    // Cursor blink animation
     const cursorInterval = setInterval(() => {
       setShowCursor(prev => !prev);
     }, 530);
 
-    // Typing animation
     const typingTimeout = setTimeout(() => {
       setIsTyping(true);
       const typingInterval = setInterval(() => {
@@ -51,7 +48,6 @@ const TypingText = ({ text, speed = 50, delay = 0, className = '' }: { text: str
   );
 };
 
-// Word reveal animation with cursor
 const WordReveal = ({ words, delay = 0, className = '' }: { words: string[]; delay?: number; className?: string }) => {
   const [visibleWords, setVisibleWords] = useState<string[]>([]);
   const [showCursor, setShowCursor] = useState(true);
@@ -98,7 +94,6 @@ const WordReveal = ({ words, delay = 0, className = '' }: { words: string[]; del
   );
 };
 
-// Animated Network Name Component with flowing gradient
 const NetworkName = ({ name, colors }: { name: string; colors: string[] }) => {
   const gradientString = `linear-gradient(90deg, ${colors.join(', ')})`;
   return (
@@ -123,7 +118,6 @@ export default function Landing() {
   const navigate = useNavigate();
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Scroll-triggered animations
   useEffect(() => {
     const observers = sectionRefs.current.map((ref) => {
       if (!ref) return null;
@@ -136,7 +130,6 @@ export default function Landing() {
               const element = entry.target as HTMLElement;
               const currentTransform = element.style.transform || '';
               element.style.opacity = '1';
-              // Reset transform based on initial transform
               if (currentTransform.includes('translateX')) {
                 element.style.transform = 'translateX(0)';
               } else if (currentTransform.includes('scale')) {

@@ -3,11 +3,8 @@ import type { Wallet } from '@midnight-ntwrk/wallet-api';
 let wallet: Wallet | null = null;
 let laceAPI: any = null;
 
-// Helper to get address from Lace API if it doesn't follow Wallet API
 async function getAddressFromLaceAPI(laceEnabled: any): Promise<string> {
   console.log('Getting address from Lace API:', laceEnabled);
-  
-  // Try different methods to get address
   if (laceEnabled.getAddress) {
     const address = await laceEnabled.getAddress();
     return address;
@@ -27,55 +24,46 @@ async function getAddressFromLaceAPI(laceEnabled: any): Promise<string> {
   throw new Error('Could not extract address from Lace API');
 }
 
-// Wait for Lace wallet to be injected
 async function waitForLace(maxWait = 10000): Promise<any> {
   const startTime = Date.now();
   
   while (Date.now() - startTime < maxWait) {
     const laceWindow = window as any;
     
-    // Try different possible injection points
     if (laceWindow.lace) {
       console.log('Found window.lace');
       return laceWindow.lace;
     }
     
-    // Sometimes it's under cardano namespace
     if (laceWindow.cardano?.lace) {
       console.log('Found window.cardano.lace');
       return laceWindow.cardano.lace;
     }
     
-    // Check for Midnight-specific injection
     if (laceWindow.midnight) {
       console.log('Found window.midnight! Properties:', Object.keys(laceWindow.midnight));
       
-      // Lace Midnight uses mnLace property
       if (laceWindow.midnight.mnLace) {
         console.log('Found window.midnight.mnLace');
         return laceWindow.midnight.mnLace;
       }
       
-      // Check if midnight itself is the wallet or has wallet/lace properties
       if (laceWindow.midnight.lace) {
         console.log('Found window.midnight.lace');
         return laceWindow.midnight.lace;
       }
       
-      // Maybe midnight itself is the wallet interface?
       if (typeof laceWindow.midnight === 'object' && ('state' in laceWindow.midnight || 'getWallet' in laceWindow.midnight)) {
         console.log('Using window.midnight directly');
         return laceWindow.midnight;
       }
       
-      // Check for wallet property
       if (laceWindow.midnight.wallet) {
         console.log('Found window.midnight.wallet');
         return laceWindow.midnight.wallet;
       }
     }
     
-    // Check all top-level properties that might be Lace
     for (const key of Object.keys(laceWindow)) {
       if (key.toLowerCase().includes('lace') && typeof laceWindow[key] === 'object') {
         console.log(`Found potential Lace at window.${key}`);
@@ -83,7 +71,6 @@ async function waitForLace(maxWait = 10000): Promise<any> {
       }
     }
     
-    // Wait a bit and retry
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   
@@ -92,15 +79,12 @@ async function waitForLace(maxWait = 10000): Promise<any> {
 
 export async function connectLaceWallet(): Promise<string> {
   try {
-    // Check if Lace wallet is available
     if (typeof window === 'undefined') {
       throw new Error('Window object not available');
     }
 
     console.log('Waiting for Lace wallet to be injected...');
     
-    // Wait for Lace to be available (extensions inject asynchronously)
-    // Unpacked extensions may take longer to inject
     const lace = await waitForLace(10000);
     
     if (!lace) {
@@ -110,13 +94,11 @@ export async function connectLaceWallet(): Promise<string> {
       console.log('Has window.cardano:', !!laceWindow.cardano);
       console.log('Has window.midnight:', !!laceWindow.midnight);
       
-      // Inspect window.midnight in detail
       if (laceWindow.midnight) {
         console.log('window.midnight type:', typeof laceWindow.midnight);
         console.log('window.midnight keys:', Object.keys(laceWindow.midnight));
         console.log('window.midnight value:', laceWindow.midnight);
         
-        // Check if it has common wallet methods
         const hasState = 'state' in laceWindow.midnight;
         const hasGetWallet = 'getWallet' in laceWindow.midnight;
         const hasWallet = 'wallet' in laceWindow.midnight;
@@ -127,7 +109,6 @@ export async function connectLaceWallet(): Promise<string> {
         console.log('window.midnight has enable:', hasEnable);
       }
       
-      // Log all properties that might be relevant
       const relevantKeys = Object.keys(laceWindow).filter(key => 
         key.toLowerCase().includes('lace') || 
         key.toLowerCase().includes('midnight') ||
@@ -140,7 +121,6 @@ export async function connectLaceWallet(): Promise<string> {
         console.log('window.cardano keys:', Object.keys(laceWindow.cardano));
       }
       
-      // Try to find any object that might be a wallet
       console.log('All window properties (first 50):', Object.keys(laceWindow).slice(0, 50));
       
       throw new Error(
@@ -156,7 +136,6 @@ export async function connectLaceWallet(): Promise<string> {
     console.log('Lace found! Available methods:', Object.keys(lace));
     console.log('Lace object:', lace);
 
-    // Try different ways to get the wallet
     if (lace.wallet) {
       console.log('Using lace.wallet');
       wallet = lace.wallet;
@@ -164,11 +143,9 @@ export async function connectLaceWallet(): Promise<string> {
       console.log('Using lace.getWallet()');
       wallet = await lace.getWallet();
     } else if (typeof lace === 'object' && 'state' in lace) {
-      // Maybe lace itself is the wallet?
       console.log('Using lace directly as wallet (has state method)');
       wallet = lace as Wallet;
     } else if (lace.enable) {
-      // Some wallet APIs use enable() pattern
       console.log('Using lace.enable() pattern');
       try {
         const enabled = await lace.enable();
@@ -176,10 +153,8 @@ export async function connectLaceWallet(): Promise<string> {
         console.log('enable() returned type:', typeof enabled);
         console.log('enable() returned keys:', enabled ? Object.keys(enabled) : 'null');
         
-        // Store enabled API
         laceAPI = enabled;
         
-        // Check if enabled has state method
         if (enabled && 'state' in enabled) {
           console.log('enabled has state method, calling it...');
           try {
@@ -187,24 +162,20 @@ export async function connectLaceWallet(): Promise<string> {
             console.log('state() returned:', stateResult);
             console.log('state() returned type:', typeof stateResult);
             
-            // Check if it's a Promise
             if (stateResult && typeof stateResult.then === 'function') {
               console.log('state() returns Promise - awaiting it...');
               const state = await stateResult;
               console.log('state Promise resolved:', state);
               console.log('state keys:', Object.keys(state));
               
-              // Extract address from state
               if (state && state.address) {
                 console.log('Found address in state:', state.address);
                 return state.address;
               } else if (state && state.coinPublicKey) {
-                // Midnight uses coinPublicKey, might need to convert to address
                 console.log('Found coinPublicKey in state:', state.coinPublicKey);
-                // For now, return the coinPublicKey as address (or convert if needed)
                 return typeof state.coinPublicKey === 'string' 
                   ? state.coinPublicKey 
-                  : Array.from(state.coinPublicKey).map(b => b.toString(16).padStart(2, '0')).join('');
+                  : Array.from(state.coinPublicKey as Uint8Array).map((b) => b.toString(16).padStart(2, '0')).join('');
               } else {
                 console.log('State object:', state);
                 throw new Error('No address or coinPublicKey found in state');
@@ -214,12 +185,10 @@ export async function connectLaceWallet(): Promise<string> {
               wallet = enabled as Wallet;
             } else {
               console.log('state() returns unexpected type - using Lace API directly');
-              // Get address directly from Lace API
               return await getAddressFromLaceAPI(enabled);
             }
           } catch (stateError) {
             console.log('Error calling state():', stateError);
-            // Get address directly from Lace API
             return await getAddressFromLaceAPI(enabled);
           }
         } else if (enabled && enabled.wallet) {
@@ -229,7 +198,6 @@ export async function connectLaceWallet(): Promise<string> {
           console.log('enabled has getWallet method');
           wallet = await enabled.getWallet();
         } else if (enabled) {
-          // Try to get address directly from Lace API
           console.log('Trying to get address directly from Lace API');
           return await getAddressFromLaceAPI(enabled);
         }
@@ -238,7 +206,6 @@ export async function connectLaceWallet(): Promise<string> {
         throw enableError;
       }
     } else if (typeof lace === 'function') {
-      // Maybe it's a function that returns the wallet?
       console.log('Lace is a function, calling it...');
       const result = await lace();
       if (result && 'state' in result) {
@@ -254,10 +221,8 @@ export async function connectLaceWallet(): Promise<string> {
       );
     }
 
-    // Get wallet address - try Wallet API first, then Lace API
     if (wallet && 'state' in wallet) {
       console.log('Using Wallet API state() method');
-      // Get wallet state to extract address
       const state = await new Promise<any>((resolve, reject) => {
         const subscription = wallet!.state().subscribe({
           next: (state) => {
@@ -267,14 +232,12 @@ export async function connectLaceWallet(): Promise<string> {
           error: reject,
         });
         
-        // Timeout after 5 seconds
         setTimeout(() => {
           subscription.unsubscribe();
           reject(new Error('Timeout waiting for wallet state'));
         }, 5000);
       });
 
-      // Extract address from wallet state
       const address = state.address;
       if (!address) {
         throw new Error('No address found in wallet state');

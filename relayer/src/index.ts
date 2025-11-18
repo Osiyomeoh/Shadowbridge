@@ -81,7 +81,6 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start Midnight event listener if configured
 let midnightListener: MidnightListener | null = null;
 if (config.midnight.contractAddress && config.midnight.indexerUrl) {
   midnightListener = new MidnightListener(
@@ -102,7 +101,6 @@ app.listen(PORT, () => {
   logger.info(`Health check: http://localhost:${PORT}/health`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   if (midnightListener) {

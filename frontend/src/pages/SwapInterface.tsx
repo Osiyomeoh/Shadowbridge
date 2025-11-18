@@ -35,14 +35,12 @@ export default function SwapInterface() {
   const [selectedNetwork, setSelectedNetwork] = useState<'midnight' | 'ethereum'>('midnight');
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  // Balance tracking
   const [recipientBalance, setRecipientBalance] = useState<BalanceInfo | null>(null);
   const [recipientBalanceBefore, setRecipientBalanceBefore] = useState<BalanceInfo | null>(null);
   const [tokenAddress, setTokenAddress] = useState<string>('');
   const [history, setHistory] = useState<TransferHistoryEntry[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -100,7 +98,6 @@ export default function SwapInterface() {
     status: (transfer.status as TransferHistoryEntry['status']) || 'QUEUED',
   });
 
-  // Get Etherscan URL for Sepolia transactions
   const getEtherscanUrl = (txHash?: string): string | null => {
     if (!txHash) return null;
     return `https://sepolia.etherscan.io/tx/${txHash}`;
@@ -155,7 +152,6 @@ export default function SwapInterface() {
     };
   }, []);
 
-  // Fetch token address from bridge on mount
   useEffect(() => {
     const bridgeAddress = import.meta.env.VITE_ETHEREUM_BRIDGE_CONTRACT;
     if (bridgeAddress) {
@@ -168,7 +164,6 @@ export default function SwapInterface() {
     }
   }, []);
 
-  // Fetch recipient balance when recipient address changes
   useEffect(() => {
     if (recipient && recipient.startsWith('0x') && tokenAddress) {
       getTokenBalance(recipient, tokenAddress).then((balance) => {
@@ -182,10 +177,8 @@ export default function SwapInterface() {
     }
   }, [recipient, tokenAddress]);
 
-  // Format address for display (truncate long addresses)
   const formatAddress = (addr: string) => {
     if (!addr) return '';
-    // If address has | separator, use the first part (coinPublicKey)
     const parts = addr.split('|');
     const displayAddr = parts[0] || addr;
     if (displayAddr.length > 20) {
@@ -219,17 +212,14 @@ export default function SwapInterface() {
         recipient: recipient.slice(0, 20) + '...',
       });
 
-      // Extract coinPublicKey from address (first part before |)
       const senderAddress = walletAddress.split('|')[0] || walletAddress;
 
-      // Save recipient balance before transaction
       if (recipient && recipient.startsWith('0x') && tokenAddress) {
         const beforeBalance = await getTokenBalance(recipient, tokenAddress);
         setRecipientBalanceBefore(beforeBalance);
         console.log('Recipient balance before:', beforeBalance);
       }
 
-      // Generate ZK proofs
       console.log('🔐 Step 1/3: Generating ZK proofs...');
       console.log('  - Generating KYC proof...');
       console.log('  - Generating Amount proof...');
@@ -242,7 +232,6 @@ export default function SwapInterface() {
       console.log('  - Amount proof length:', proofs.amountProof.length);
       console.log('  - Sanctions proof length:', proofs.sanctionsProof.length);
 
-      // Submit to relayer
       console.log('📤 Step 2/3: Submitting transfer to relayer...');
       const result = await submitTransfer({
         sender: senderAddress,
@@ -276,7 +265,6 @@ export default function SwapInterface() {
         message: `Payment to ${recipient.slice(0, 6)}... queued`,
       });
 
-      // Poll for status updates
       console.log('⏳ Step 3/3: Waiting for relayer to process...');
       let pollCount = 0;
       const checkStatus = async () => {
@@ -304,10 +292,8 @@ export default function SwapInterface() {
               title: 'Payment Settled',
               message: `Transfer ${result.transferId.slice(0, 6)}... confirmed on Ethereum`,
             });
-            
-            // Refresh recipient balance after settlement
+
             if (recipient && recipient.startsWith('0x') && tokenAddress) {
-              // Wait a bit for the transaction to be indexed
               setTimeout(async () => {
                 const newBalance = await getTokenBalance(recipient, tokenAddress);
                 if (newBalance) {

@@ -1,6 +1,5 @@
 import { ethers } from 'ethers';
 
-// Standard ERC20 ABI (just balanceOf and decimals)
 const ERC20_ABI = [
   'function balanceOf(address owner) view returns (uint256)',
   'function decimals() view returns (uint8)',
@@ -60,7 +59,6 @@ export async function getTokenAddressFromBridge(bridgeAddress: string): Promise<
 
   try {
     const provider = new ethers.JsonRpcProvider(SEPOLIA_RPC);
-    // BridgeReceiver has wrappedToken() public view function
     const bridgeABI = ['function wrappedToken() view returns (address)'];
     const bridgeContract = new ethers.Contract(bridgeAddress, bridgeABI, provider);
     const tokenAddress = await bridgeContract.wrappedToken();
