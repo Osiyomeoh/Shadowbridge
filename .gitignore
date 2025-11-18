@@ -11,6 +11,17 @@ dist/
 build/
 *.log
 
+# Large circuit artifacts
+contracts/midnight/circuits/*.ptau
+contracts/midnight/circuits/*.zkey
+contracts/midnight/circuits/*.r1cs
+contracts/midnight/circuits/*.wtns
+contracts/midnight/circuits/*_key.json
+contracts/midnight/circuits/*_js/
+
+# Local Midnight DB
+contracts/midnight/midnight-level-db/
+
 # IDE
 .vscode/
 .idea/
