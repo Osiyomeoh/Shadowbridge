@@ -1,0 +1,37 @@
+{
+  "name": "shadowbridge-midnight-circuits",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build:clean": "rimraf build && mkdir -p build",
+    "build:kyc": "circom kyc.circom --r1cs --wasm --sym -o build -l node_modules",
+    "build:amount": "circom amount.circom --r1cs --wasm --sym -o build -l node_modules",
+    "build:sanctions": "circom sanctions.circom --r1cs --wasm --sym -o build -l node_modules",
+    "build": "npm run build:clean && npm run build:kyc && npm run build:amount && npm run build:sanctions",
+    "setup:kyc": "snarkjs groth16 setup build/kyc.r1cs powersOfTau28_hez_final_12_final.ptau build/kyc_0000.zkey",
+    "setup:amount": "snarkjs groth16 setup build/amount.r1cs powersOfTau28_hez_final_12_final.ptau build/amount_0000.zkey",
+    "setup:sanctions": "snarkjs groth16 setup build/sanctions.r1cs powersOfTau28_hez_final_12_final.ptau build/sanctions_0000.zkey",
+    "setup": "npm run setup:kyc && npm run setup:amount && npm run setup:sanctions",
+    "contribute:kyc": "snarkjs zkey contribute build/kyc_0000.zkey build/kyc_0001.zkey --name=\"ShadowBridge KYC\" -v -e=\"test\"",
+    "contribute:amount": "snarkjs zkey contribute build/amount_0000.zkey build/amount_0001.zkey --name=\"ShadowBridge Amount\" -v -e=\"test\"",
+    "contribute:sanctions": "snarkjs zkey contribute build/sanctions_0000.zkey build/sanctions_0001.zkey --name=\"ShadowBridge Sanctions\" -v -e=\"test\"",
+    "contribute": "npm run contribute:kyc && npm run contribute:amount && npm run contribute:sanctions",
+    "export:kyc": "snarkjs zkey export verificationkey build/kyc_0001.zkey build/kyc_verification_key.json && cp build/kyc_0001.zkey build/kyc_final.zkey",
+    "export:amount": "snarkjs zkey export verificationkey build/amount_0001.zkey build/amount_verification_key.json && cp build/amount_0001.zkey build/amount_final.zkey",
+    "export:sanctions": "snarkjs zkey export verificationkey build/sanctions_0001.zkey build/sanctions_verification_key.json && cp build/sanctions_0001.zkey build/sanctions_final.zkey",
+    "export": "npm run export:kyc && npm run export:amount && npm run export:sanctions",
+    "finalize": "npm run contribute && npm run export",
+    "prove:kyc": "snarkjs groth16 prove build/kyc_final.zkey build/kyc.wtns build/kyc_proof.json build/kyc_public.json",
+    "prove:amount": "snarkjs groth16 prove build/amount_final.zkey build/amount.wtns build/amount_proof.json build/amount_public.json",
+    "prove:sanctions": "snarkjs groth16 prove build/sanctions_final.zkey build/sanctions.wtns build/sanctions_proof.json build/sanctions_public.json",
+    "verify:kyc": "snarkjs groth16 verify build/kyc_verification_key.json build/kyc_public.json build/kyc_proof.json",
+    "verify:amount": "snarkjs groth16 verify build/amount_verification_key.json build/amount_public.json build/amount_proof.json",
+    "verify:sanctions": "snarkjs groth16 verify build/sanctions_verification_key.json build/sanctions_public.json build/sanctions_proof.json"
+  },
+  "devDependencies": {
+    "circomlib": "^2.0.5",
+    "rimraf": "^5.0.5",
+    "snarkjs": "^0.7.4"
+  }
+}
+

@@ -1,0 +1,200 @@
+pragma language_version 0.18;
+
+import CompactStandardLibrary;
+
+// Transfer status for relayer tracking
+export enum TransferStatus {
+  REGISTERED,
+  FINALIZED,
+  CANCELLED
+}
+
+// Public record of a transfer intent
+export struct TransferRecord {
+  senderCommit: Bytes<32>;
+  recipientCommit: Bytes<32>;
+  amountCommit: Bytes<32>;
+  destChainId: Uint<32>;
+  timestamp: Uint<64>;
+  status: TransferStatus;
+}
+
+// Ledger state --------------------------------------------------------------
+
+// Admin address allowed to update limits/pause contract
+export sealed ledger admin: Bytes<32>;
+
+// Global pause flag
+export ledger paused: Boolean;
+
+// USD limits (cents) enforced by registerTransfer
+export ledger minAmount: Uint<32>;
+export ledger maxAmount: Uint<32>;
+
+// Current sanctions allowlist root (Poseidon hash)
+export ledger sanctionsRoot: Bytes<32>;
+
+// Map messageHash -> TransferRecord
+export ledger transfers: Map<Bytes<32>, TransferRecord>;
+
+// Track hashes already finalized
+export ledger processed: Set<Bytes<32>>;
+
+// Constructor initializes config
+constructor(
+  adminPk: Bytes<32>,
+  minUsd: Uint<32>,
+  maxUsd: Uint<32>,
+  sanctionsMerkleRoot: Bytes<32>
+) {
+  admin = disclose(adminPk);
+  minAmount = disclose(minUsd);
+  maxAmount = disclose(maxUsd);
+  sanctionsRoot = disclose(sanctionsMerkleRoot);
+  paused = false;
+}
+
+// ---------------------------------------------------------------------------
+// Witness declarations (implemented in TS / prover service)
+
+witness kycProof(): Opaque<"Uint8Array">;
+witness amountProof(): Opaque<"Uint8Array">;
+witness sanctionsProof(): Opaque<"Uint8Array">;
+witness relayerKey(): Bytes<32>;
+witness senderCommitWitness(): Bytes<32>;
+witness recipientCommitWitness(): Bytes<32>;
+witness amountCommitWitness(): Bytes<32>;
+
+// Helper circuits ----------------------------------------------------------
+
+circuit isAdmin(pk: Bytes<32>): Boolean {
+  return pk == admin;
+}
+
+circuit requireNotPaused(): [] {
+  assert(paused == false, "Contract is paused");
+  return [];
+}
+
+circuit withinLimits(amount: Uint<32>): [] {
+  assert(amount >= minAmount, "Amount below minimum");
+  assert(amount <= maxAmount, "Amount above maximum");
+  return [];
+}
+
+// Entry points -------------------------------------------------------------
+
+export circuit registerTransfer(
+  messageHash: Bytes<32>,
+  destChainId: Uint<32>,
+  amountUsdCents: Uint<32>,
+  timestamp: Uint<64>
+): [] {
+  const key = disclose(messageHash);
+  requireNotPaused();
+  assert(transfers.member(key) == false, "Transfer already exists");
+  withinLimits(amountUsdCents);
+
+  // witness data
+  const senderCommit = senderCommitWitness();
+  const recipientCommit = recipientCommitWitness();
+  const amountCommit = amountCommitWitness();
+
+  // proof blobs (opaque)
+  const kyc = kycProof();
+  const amt = amountProof();
+  const sanc = sanctionsProof();
+
+  // We only store commitments publicly; proofs stay off-chain.
+  transfers.insert(
+    key,
+    TransferRecord {
+      senderCommit: disclose(senderCommit),
+      recipientCommit: disclose(recipientCommit),
+      amountCommit: disclose(amountCommit),
+      destChainId: disclose(destChainId),
+      timestamp: disclose(timestamp),
+      status: TransferStatus.REGISTERED
+    }
+  );
+
+  // Touch the opaque proofs so compiler knows they're used (even if not stored)
+  assert(kyc != default<Opaque<"Uint8Array">>, "KYC proof required");
+  assert(amt != default<Opaque<"Uint8Array">>, "Amount proof required");
+  assert(sanc != default<Opaque<"Uint8Array">>, "Sanctions proof required");
+}
+
+export circuit finalizeTransfer(messageHash: Bytes<32>): [] {
+  const key = disclose(messageHash);
+  requireNotPaused();
+  assert(transfers.member(key), "Unknown transfer");
+  assert(processed.member(key) == false, "Already finalized");
+
+  const relayer = relayerKey();
+  assert(isAdmin(relayer), "Unauthorized relayer");
+
+  const record = transfers.lookup(key);
+  assert(record.status == TransferStatus.REGISTERED, "Invalid status");
+
+  processed.insert(key);
+  transfers.insert(
+    key,
+    TransferRecord {
+      senderCommit: record.senderCommit,
+      recipientCommit: record.recipientCommit,
+      amountCommit: record.amountCommit,
+      destChainId: record.destChainId,
+      timestamp: record.timestamp,
+      status: TransferStatus.FINALIZED
+    }
+  );
+}
+
+export circuit cancelTransfer(messageHash: Bytes<32>): [] {
+  const key = disclose(messageHash);
+  const caller = relayerKey();
+  assert(isAdmin(caller), "Unauthorized");
+  assert(transfers.member(key), "Unknown transfer");
+
+  const record = transfers.lookup(key);
+  assert(record.status == TransferStatus.REGISTERED, "Cannot cancel");
+
+  transfers.insert(
+    key,
+    TransferRecord {
+      senderCommit: record.senderCommit,
+      recipientCommit: record.recipientCommit,
+      amountCommit: record.amountCommit,
+      destChainId: record.destChainId,
+      timestamp: record.timestamp,
+      status: TransferStatus.CANCELLED
+    }
+  );
+}
+
+export circuit pause(): [] {
+  const caller = relayerKey();
+  assert(isAdmin(caller), "Unauthorized");
+  paused = true;
+}
+
+export circuit resume(): [] {
+  const caller = relayerKey();
+  assert(isAdmin(caller), "Unauthorized");
+  paused = false;
+}
+
+export circuit updateLimits(minUsd: Uint<32>, maxUsdArg: Uint<32>): [] {
+  const caller = relayerKey();
+  assert(isAdmin(caller), "Unauthorized");
+  assert(minUsd <= maxUsdArg, "Invalid limits");
+  minAmount = disclose(minUsd);
+  maxAmount = disclose(maxUsdArg);
+}
+
+export circuit updateSanctionsRoot(root: Bytes<32>): [] {
+  const caller = relayerKey();
+  assert(isAdmin(caller), "Unauthorized");
+  sanctionsRoot = disclose(root);
+}
+
